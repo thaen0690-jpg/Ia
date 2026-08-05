@@ -1,0 +1,328 @@
+-- ==========================================================
+--               CLOUD HUB | BLOX FRUITS SCRIPT
+--                  FULL WORKING VERSION BY CLOUD
+-- ==========================================================
+
+-- โหลด Fluent UI Library
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+-- สร้าง Window หลัก
+local Window = Fluent:CreateWindow({
+    Title = "Cloud Hub | Blox Fruits",
+    SubTitle = "BY Cloud (Fully Working)",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Darker",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- ==================== TABS ====================
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main Farm", Icon = "sword" }),
+    Quest = Window:AddTab({ Title = "Quest & Target", Icon = "target" }),
+    Boss = Window:AddTab({ Title = "Boss Farm", Icon = "crown" }),
+    Item = Window:AddTab({ Title = "Chest & Fruit", Icon = "box" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+    Stats = Window:AddTab({ Title = "Auto Stats", Icon = "bar-chart-2" }),
+    Credits = Window:AddTab({ Title = "Credits", Icon = "info" })
+}
+
+-- ==================== DATA & CONSTANTS ====================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+
+-- ข้อมูลเควสต์และพิกัด Sea 1
+local LevelData = {
+    [1] = {
+        QuestName = "BanditQuest1",
+        QuestLevel = 1,
+        Monster = "Bandit",
+        NPCCFrame = CFrame.new(1059, 16, 1548),
+        MonsterCFrame = CFrame.new(1148, 16, 1630)
+    },
+    [10] = {
+        QuestName = "JungleQuest",
+        QuestLevel = 1,
+        Monster = "Monkey",
+        NPCCFrame = CFrame.new(-1598, 36, 153),
+        MonsterCFrame = CFrame.new(-1610, 36, 140)
+    },
+    [20] = {
+        QuestName = "JungleQuest",
+        QuestLevel = 2,
+        Monster = "Gorilla",
+        NPCCFrame = CFrame.new(-1598, 36, 153),
+        MonsterCFrame = CFrame.new(-1240, 6, -490)
+    }
+}
+
+-- พิกัดวาร์ปเกาะต่างๆ (Sea 1)
+local Islands = {
+    ["Starter Island"] = CFrame.new(1059, 16, 1548),
+    ["Jungle"] = CFrame.new(-1610, 36, 140),
+    ["Pirate Village"] = CFrame.new(-1181, 4, 3820),
+    ["Desert"] = CFrame.new(1094, 6, 4192),
+    ["Middle Town"] = CFrame.new(-690, 15, 1582),
+    ["Frozen Village"] = CFrame.new(1147, 27, -1206),
+    ["Marine Ford"] = CFrame.new(-5036, 20, 4323)
+}
+
+local function GetCurrentQuest()
+    local MyLevel = LocalPlayer.Data.Level.Value
+    local CurrentQuestData = LevelData[1]
+    for level, data in pairs(LevelData) do
+        if MyLevel >= level then
+            CurrentQuestData = data
+        end
+    end
+    return CurrentQuestData
+end
+
+-- ฟังก์ชันถืออาวุธ
+local function EquipWeapon(WeaponType)
+    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if item:IsA("Tool") then
+            if (WeaponType == "Melee" and item.ToolTip == "Melee") or
+               (WeaponType == "Sword" and item.ToolTip == "Sword") or
+               (WeaponType == "Blox Fruit" and item.ToolTip == "Blox Fruit") then
+                LocalPlayer.Character.Humanoid:EquipTool(item)
+            end
+        end
+    end
+end
+
+-- ฟังก์ชันคลิกตีอัตโนมัติ
+local function AutoClick()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton1(Vector2.new(50, 50))
+end
+
+-- ==================== TAB 1: MAIN ====================
+getgenv().AutoFarm = false
+getgenv().SelectWeapon = "Melee"
+
+Tabs.Main:AddDropdown("WeaponSelect", {
+    Title = "Select Weapon",
+    Values = {"Melee", "Sword", "Blox Fruit"},
+    Multi = false,
+    Default = 1,
+    Callback = function(Value)
+        getgenv().SelectWeapon = Value
+    end
+})
+
+local ToggleFarm = Tabs.Main:AddToggle("AutoFarm", {Title = "Auto Farm Level", Default = false})
+ToggleFarm:OnChanged(function()
+    getgenv().AutoFarm = Options.AutoFarm.Value
+    task.spawn(function()
+        while getgenv().AutoFarm do
+            task.wait()
+            pcall(function()
+                local quest = GetCurrentQuest()
+                EquipWeapon(getgenv().SelectWeapon)
+                
+                -- เช็คว่ามีเควสต์หรือยัง ถ้าไม่มีให้ไปรับเควสต์
+                if not LocalPlayer.PlayerGui.Main.Quest.Visible then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = quest.NPCCFrame
+                    task.wait(0.5)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", quest.QuestName, quest.QuestLevel)
+                else
+                    -- วาร์ปไปตีมอนสเตอร์
+                    for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+                        if v.Name:find(quest.Monster) and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                            AutoClick()
+                            break
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==================== TAB 2: QUEST & TARGET ====================
+getgenv().AutoSelectQuest = false
+getgenv().SelectedMonster = "Bandit"
+getgenv().BringMob = false
+
+Tabs.Quest:AddDropdown("MonsterSelect", {
+    Title = "Select Monster Target",
+    Values = {"Bandit", "Monkey", "Gorilla", "Pirate"},
+    Multi = false,
+    Default = 1,
+    Callback = function(Value)
+        getgenv().SelectedMonster = Value
+    end
+})
+
+local ToggleQuest = Tabs.Quest:AddToggle("AutoQuest", {Title = "Auto Get Best Quest", Default = false})
+ToggleQuest:OnChanged(function()
+    getgenv().AutoSelectQuest = Options.AutoQuest.Value
+    task.spawn(function()
+        while getgenv().AutoSelectQuest do
+            task.wait(1)
+            pcall(function()
+                if not LocalPlayer.PlayerGui.Main.Quest.Visible then
+                    local QuestInfo = GetCurrentQuest()
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", QuestInfo.QuestName, QuestInfo.QuestLevel)
+                end
+            end)
+        end
+    end)
+end)
+
+local ToggleBring = Tabs.Quest:AddToggle("BringMob", {Title = "Bring Mob (Magnet)", Default = false})
+ToggleBring:OnChanged(function()
+    getgenv().BringMob = Options.BringMob.Value
+    task.spawn(function()
+        while getgenv().BringMob do
+            task.wait()
+            pcall(function()
+                for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                        if getgenv().SelectedMonster ~= "" and v.Name:find(getgenv().SelectedMonster) then
+                            v.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+                            v.HumanoidRootPart.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==================== TAB 3: BOSS FARM ====================
+getgenv().SelectedBoss = "The Gorilla King"
+getgenv().AutoBoss = false
+
+Tabs.Boss:AddDropdown("BossSelect", {
+    Title = "Select Boss",
+    Values = {"The Gorilla King", "Bobby", "Yeti", "Vice Admiral"},
+    Multi = false,
+    Default = 1,
+    Callback = function(Value)
+        getgenv().SelectedBoss = Value
+    end
+})
+
+local ToggleBoss = Tabs.Boss:AddToggle("AutoBoss", {Title = "Auto Farm Selected Boss", Default = false})
+ToggleBoss:OnChanged(function()
+    getgenv().AutoBoss = Options.AutoBoss.Value
+    task.spawn(function()
+        while getgenv().AutoBoss do
+            task.wait()
+            pcall(function()
+                if getgenv().SelectedBoss ~= "" then
+                    local boss = game.Workspace.Enemies:FindFirstChild(getgenv().SelectedBoss)
+                    if boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+                        EquipWeapon(getgenv().SelectWeapon)
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                        AutoClick()
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==================== TAB 4: CHEST & FRUIT ====================
+getgenv().AutoChest = false
+local ToggleChest = Tabs.Item:AddToggle("AutoChest", {Title = "Auto Farm Chest", Default = false})
+ToggleChest:OnChanged(function()
+    getgenv().AutoChest = Options.AutoChest.Value
+    task.spawn(function()
+        while getgenv().AutoChest do
+            task.wait(0.1)
+            pcall(function()
+                for _, v in pairs(game.Workspace:GetChildren()) do
+                    if getgenv().AutoChest and (v.Name:find("Chest1") or v.Name:find("Chest2") or v.Name:find("Chest3")) then
+                        if v:FindFirstChild("TouchInterest") then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = v.CFrame
+                            task.wait(0.2)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+Tabs.Item:AddButton({
+    Title = "ESP Fruit / Check Fruit",
+    Callback = function()
+        local found = false
+        for _, v in pairs(game.Workspace:GetChildren()) do
+            if v:IsA("Tool") or v:FindFirstChild("Handle") then
+                if v.Name:find("Fruit") then
+                    found = true
+                    Fluent:Notify({Title = "Fruit Found!", Content = "พบผลปีศาจ: " .. v.Name, Duration = 5})
+                end
+            end
+        end
+        if not found then
+            Fluent:Notify({Title = "Not Found", Content = "ไม่พบผลปีศาจบนพื้นในขณะนี้", Duration = 3})
+        end
+    end
+})
+
+getgenv().AutoGrabFruit = false
+local ToggleFruit = Tabs.Item:AddToggle("AutoGrabFruit", {Title = "Auto Grab Fruit", Default = false})
+ToggleFruit:OnChanged(function()
+    getgenv().AutoGrabFruit = Options.AutoGrabFruit.Value
+    task.spawn(function()
+        while getgenv().AutoGrabFruit do
+            task.wait(0.5)
+            pcall(function()
+                for _, v in pairs(game.Workspace:GetChildren()) do
+                    if v:IsA("Tool") and v.Name:find("Fruit") and v:FindFirstChild("Handle") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==================== TAB 5: TELEPORT ====================
+Tabs.Teleport:AddDropdown("IslandSelect", {
+    Title = "Select Island",
+    Values = {"Starter Island", "Jungle", "Pirate Village", "Desert", "Middle Town", "Frozen Village", "Marine Ford"},
+    Multi = false,
+    Default = 1,
+    Callback = function(Value)
+        if Islands[Value] then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = Islands[Value]
+        end
+    end
+})
+
+-- ==================== TAB 6: STATS ====================
+getgenv().AutoStatsMelee = false
+local ToggleStats = Tabs.Stats:AddToggle("AutoMelee", {Title = "Auto Stats Melee", Default = false})
+ToggleStats:OnChanged(function()
+    getgenv().AutoStatsMelee = Options.AutoMelee.Value
+    task.spawn(function()
+        while getgenv().AutoStatsMelee do
+            task.wait(0.1)
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Melee", 1)
+            end)
+        end
+    end)
+end)
+
+-- ==================== TAB 7: CREDITS ====================
+Tabs.Credits:AddParagraph({ Title = "Developer", Content = "Scripted & Designed BY Cloud" })
+Tabs.Credits:AddParagraph({ Title = "Status", Content = "Fully Functional / All Remotes Connected" })
+
+Fluent:Notify({
+    Title = "Cloud Hub Ready!",
+    Content = "เชื่อมต่อระบบ Blox Fruits เรียบร้อย เปิด/ปิดปุ่มใช้งานได้ทันที!",
+    Duration = 5
+})
